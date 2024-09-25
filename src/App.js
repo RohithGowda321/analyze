@@ -16,12 +16,12 @@
 //     const fetchData = async () => {
 //       try {
 //         const response = await axios.get(API_URL);
-        
+
 //         // Log the full response to the console for inspection
 //         console.log('Full API Response:', response.data);
-  
+
 //         const timeSeries = response.data['Time Series (1min)'];
-  
+
 //         if (timeSeries) {
 //           const data = Object.entries(timeSeries).map(([time, priceData]) => ({
 //             time,
@@ -36,17 +36,16 @@
 //         } else {
 //           throw new Error('No data available');
 //         }
-  
+
 //         setLoading(false);
 //       } catch (error) {
 //         setError(error.message);
 //         setLoading(false);
 //       }
 //     };
-  
+
 //     fetchData();
 //   }, [API_URL]);
-  
 
 //   return (
 //     <div className="App">
@@ -87,16 +86,17 @@
 
 // export default App;
 
-
-import React from 'react'
-import MarketGraph from './Screens/MarketGraph'
+import React from "react";
+import MarketGraph from "./Screens/MarketGraph";
+import MarketDataComponent from "./Screens/MarketCalculations";
+import CoffeeTradingComponent from "./Screens/MarketCalculations";
 
 const App = () => {
   return (
     <div>
-      <MarketGraph/>
+      <CoffeeTradingComponent />
     </div>
-  )
-}
+  );
+};
 
-export default App
+export default App;
