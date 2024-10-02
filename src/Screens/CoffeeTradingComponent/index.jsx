@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { PacmanLoader } from "react-spinners";
 import { Line } from "react-chartjs-2";
 import {
@@ -130,7 +130,7 @@ const CoffeeTradingComponent = () => {
     return `${hours}h ${minutes}m ${seconds}s`;
   };
 
-  const connectWebSocket = () => {
+  const connectWebSocket = useCallback(() => {
     socketRef.current = new WebSocket(WEBSOCKET_URL);
 
     socketRef.current.onopen = () => {
@@ -161,8 +161,7 @@ const CoffeeTradingComponent = () => {
       console.log("WebSocket connection closed. Attempting to reconnect...");
       setTimeout(connectWebSocket, 5000);
     };
-  };
-
+  }, []);
   useEffect(() => {
     connectWebSocket();
     const analyzeData = async () => {
@@ -310,7 +309,7 @@ const CoffeeTradingComponent = () => {
       }
       clearInterval(analysisIntervalRef.current);
     };
-  }, []);
+  }, [connectWebSocket,signal]);
 
   const storeMarketData = (data) => {
     dataBufferRef.current.push(data);
@@ -402,6 +401,7 @@ const CoffeeTradingComponent = () => {
         <div className="status-cards">
           <div className="status-card">
             <h3>{marketStatus}</h3>
+            <p>{timeRemaining}</p> 
             {marketStatus === "Market is Open To Trade" && (
               <p style={{ color: getTimerColor() }}>
                 Closing in {formatCountdown()}
