@@ -11,7 +11,7 @@ import {
   Tooltip,
   Legend,
 } from "chart.js";
-import './Styles.scss'
+import "./Styles.scss";
 
 // Register necessary components
 ChartJS.register(
@@ -39,6 +39,95 @@ const CoffeeTradingComponent = () => {
   const analysisIntervalRef = useRef(null);
   const messageEndRef = useRef(null);
   const [messages, setMessages] = useState([]);
+
+  const [marketStatus, setMarketStatus] = useState("Closed");
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [timeRemaining, setTimeRemaining] = useState("");
+  const [countdown, setCountdown] = useState(0); // Countdown in seconds
+
+  useEffect(() => {
+      const interval = setInterval(() => {
+          const now = new Date();
+          setCurrentTime(now);
+          updateMarketStatus(now);
+      }, 1000);
+
+      return () => clearInterval(interval);
+  }, []);
+
+  const updateMarketStatus = (now) => {
+      const day = now.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+
+      // Check if today is Saturday (6) or Sunday (0)
+      if (day === 0 || day === 6) {
+          setMarketStatus("Closed");
+          setTimeRemaining(`Current time: ${now.toLocaleTimeString()}`);
+          setCountdown(0);
+          return;
+      }
+
+      // Calculate the time in minutes since 00:00
+      const currentMinutes = hours * 60 + minutes;
+      const marketOpenTime = 13 * 60 + 30; // 1:30 PM
+      const marketCloseTime = 22 * 60 + 30; // 10:30 PM
+
+      if (currentMinutes >= marketOpenTime && currentMinutes < marketCloseTime) {
+          setMarketStatus("Market is Open To Trade");
+          const remainingMinutes = marketCloseTime - currentMinutes;
+          const remainingHours = Math.floor(remainingMinutes / 60);
+          const remainingMinutesDisplay = remainingMinutes % 60;
+          setTimeRemaining(`Closing in ${remainingHours}h ${remainingMinutesDisplay}m`);
+          // Calculate countdown in seconds
+          setCountdown(remainingMinutes * 60);
+      } else {
+          setMarketStatus("Closed");
+          const nextOpenTime = new Date(now);
+          if (currentMinutes >= marketCloseTime) {
+              nextOpenTime.setDate(now.getDate() + 1); // Next day
+              nextOpenTime.setHours(13, 30, 0); // Set to 1:30 PM
+          } else {
+              nextOpenTime.setHours(13, 30, 0); // Set to 1:30 PM today
+          }
+          const timeUntilOpen = Math.round((nextOpenTime - now) / 1000); // in seconds
+          const hoursUntilOpen = Math.floor(timeUntilOpen / 3600);
+          const minutesUntilOpen = Math.floor((timeUntilOpen % 3600) / 60);
+          setTimeRemaining(`Opening in ${hoursUntilOpen}h ${minutesUntilOpen}m`);
+          setCountdown(0);
+      }
+  };
+
+  // Countdown effect
+  useEffect(() => {
+      if (countdown > 0) {
+          const countdownInterval = setInterval(() => {
+              setCountdown((prev) => prev - 1);
+          }, 1000);
+
+          return () => clearInterval(countdownInterval);
+      }
+  }, [countdown]);
+
+  // Get timer color based on remaining time
+  const getTimerColor = () => {
+      if (countdown <= 3600) {
+          return "red"; // Less than 1 hour
+      } else if (countdown <= 10800) {
+          return "yellow"; // Between 1 and 3 hours
+      } else {
+          return "green"; // More than 3 hours
+      }
+  };
+
+  // Format countdown time to display
+  const formatCountdown = () => {
+      const hours = Math.floor(countdown / 3600);
+      const minutes = Math.floor((countdown % 3600) / 60);
+      const seconds = countdown % 60;
+      return `${hours}h ${minutes}m ${seconds}s`;
+  };
+
   const connectWebSocket = () => {
     socketRef.current = new WebSocket(WEBSOCKET_URL);
 
@@ -100,7 +189,7 @@ const CoffeeTradingComponent = () => {
 
       const priceChangePercentage = ((lastChng - prevRate) / prevRate) * 100;
       const liquidity = bidSize - askSize;
-      const volatility = highRate - lowRate;
+      const priceFluctuation = highRate - lowRate;
 
       let overallSignal = "";
       let detailedExplanation = "";
@@ -164,7 +253,7 @@ const CoffeeTradingComponent = () => {
       // Option Expiry and First Notice Day
       if (optionExpiry && new Date(optionExpiry) < new Date()) {
         detailedExplanation +=
-          " The option expiry is approaching, which may increase volatility.";
+          " The option expiry is approaching, which may increase price fluctuation.";
         changedMetrics.push("optionExpiry");
       }
 
@@ -173,59 +262,35 @@ const CoffeeTradingComponent = () => {
           " The first notice day is approaching, possibly causing price swings.";
         changedMetrics.push("firstNoticeDay");
       }
-      const enhancedPrompt = `
-      Provide a detailed analysis of the current coffee market conditions. 
 
+      const enhancedPrompt = `
+      Provide an in-depth analysis of the current coffee commodity market conditions, focusing on real-time data and key factors influencing the market avoid buzz words.
+   
       Data Summary:
-      - Trading signal: ${signal}
+      - Trading Signal: ${signal}
       - Price Change: ${priceChangePercentage.toFixed(2)}%
       - Liquidity: ${liquidity}
-      - Volatility: ${volatility}
+      - price fluctuation: ${priceFluctuation}
       - Bid Price: ${bid}
       - Ask Price: ${ask}
       - Volume: ${volume}
       - Open Price: ${openRate}
       - Previous Rate: ${prevRate}
-
+   
+      Key Aspects:
+      - Current Contract Status: Highlight ongoing futures contracts (buy/sell) and their performance.
+      - Coffee Buying/Selling Trends: Are there any dominant trends in the market for purchasing or selling coffee contracts?
+      - Inventory and Supply Chain Impact: Is current market movement driven by supply chain constraints, harvest outlook, or inventory fluctuations please go through the web and give us a prominent response related to coffee commodity inventory and supply chain Impact as of today news surf the web?
+      - Coffee-Specific Economic Factors: How are economic indicators like weather conditions, global demand, or trade policies affecting coffee prices?
+   
       Questions:
-      1. What is the current market trend based on the latest data?
-      2. Is there any potential risk or unexpected volatility in the upcoming period?
-      3. What factors are most likely influencing the current buy/sell signals?
-      4. How should a trader adjust their position considering this data?
-    `;
-
-      //     const enhancedPrompt = `
-      //   Provide a comprehensive analysis of the current coffee commodity market, with a focus on futures contracts and real-time trading data and real world news which can influence the coffee market.
-
-      //   Market Data Overview:
-      //   - Trading Signal: ${signal}
-      //   - Price Change: ${priceChangePercentage.toFixed(2)}%
-      //   - Liquidity Level: ${liquidity}
-      //   - Volatility Index: ${volatility}
-      //   - Bid Price: ${bid}
-      //   - Ask Price: ${ask}
-      //   - Trade Volume: ${volume}
-      //   - Open Price: ${openRate}
-      //   - Previous Closing Rate: ${prevRate}
-
-      //   Market-Specific Insights:
-      //   - Coffee Futures Contract: ${marketName} (Expiration: ${optionExpiry})
-      //   // - Global Supply Status: ${supplyStatus}
-      //   // - Coffee Harvest Outlook: ${harvestForecast}
-      //   // - Weather Impacts: ${weatherConditions}
-      //   // - Economic Factors: ${economicFactors}
-
-      //   Strategic Questions for Traders:
-      //   1. Based on the current data, what is the prevailing market sentiment for coffee futures?
-      //   2. Are there any short-term risks or opportunities due to changes in market conditions (e.g., sudden shifts in demand/supply)?
-      //   3. What external factors (e.g., geopolitical, climate, supply chain) might be influencing the price movements and trading signals for coffee?
-      //   4. Should traders consider a more aggressive or conservative position given current volatility and liquidity levels?
-      //   5. How do seasonal patterns and harvest forecasts impact near-term trading decisions for coffee contracts?
-      //   6. Given the global supply-demand balance, how should traders anticipate potential price shocks or corrections?
-
-      //   Recommendation:
-      //   Provide tailored advice for traders on whether to maintain, adjust, or exit their positions based on the above data and factors, considering both short-term and long-term market outlooks.
-      // `;
+      1. Based on the provided data, what is the overall trend for coffee commodity contracts (long/short positions)?
+      2. Are there any immediate risks of unexpected price fluctuations or price fluctuation based on external factors like weather or supply shortages?
+      3. Which major factors (e.g., harvest forecasts, supply issues, currency exchange rates) are driving the buy/sell signals in the coffee market?
+      4. Considering this data, should traders adjust their current positions (buy/sell/hold) in coffee futures, and what are the recommended strategies for maximizing profits or minimizing risks?
+   
+      Please provide the analysis in a clear, easy-to-understand format suitable for both seasoned traders and those new to coffee commodity trading avoid buzz words.
+   `;
 
       setSignal(overallSignal);
       setExplanation(detailedExplanation);
@@ -298,7 +363,6 @@ const CoffeeTradingComponent = () => {
       setLoadingAI(false);
     }
   };
-console.log(messages)
   const chartData = {
     labels: marketData.map((_, index) => index + 1), // Use index as labels for simplicity
     datasets: [
@@ -322,136 +386,134 @@ console.log(messages)
       },
     ],
   };
-  const parseMarkdown = (text) => {
-    return text
-      .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*(.*?)\*/g, "<em>$1</em>");
-  };
 
   useEffect(() => {
     if (messageEndRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-  const formatMessageText = (text) => {
-    const sections = text.split("\n\n"); // Split sections by double newlines
-    return sections.map((section, index) => {
-      // Match numbered headings and create <h3> elements
-      const headingMatch = section.match(/^\*(.*?)\*\s*$/);
-      if (headingMatch) {
-        return (
-          <div key={index}>
-            <h3>{headingMatch[1]}</h3>
-            <ul>
-              {section
-                .replace(/^\*\s*.*?$/gm, "") // Remove headings from the section
-                .split("\n*") // Split bullet points
-                .filter(point => point.trim() !== "") // Remove empty points
-                .map((point, pointIndex) => (
-                  <li key={pointIndex}>{point.replace(/^\s*\*\s*/, "")}</li>
-                ))}
-            </ul>
-          </div>
-        );
-      }
-      return null; // Ignore other sections for simplicity
-    });
-  };
-  
+
   return (
-    <div className="container">
-      <h1>Coffee Commodity Trading Dashboard</h1>
-      <div className="grid">
-        <div className="card">
-          <h1>Coffee Trading Dashboard</h1>
-          <div className="sub-grid">
-            <div className="signal">
-              <h2>Trading Signal</h2>
-              <h3 style={{ color: "#f50057" }}>{signal}</h3>
-              <p>{explanation}</p>
-              {loadingAI && <PacmanLoader color="#36D7B7" size={25} />}
+    <div>
+        <div className="market-timing-card">
+            <h2>Market Timings</h2>
+            <div className="status-cards">
+                <div className="status-card">
+                    <h3>{marketStatus}</h3>
+                    {marketStatus === "Market is Open To Trade" && (
+                        <p style={{ color: getTimerColor() }}>
+                            Closing in {formatCountdown()}
+                        </p>
+                    )}
+                </div>
+                <div className="status-card">
+                    <h3>Current Time:</h3>
+                    <p>{currentTime.toLocaleTimeString()}</p>
+                </div>
             </div>
-            <div className="overview">
-              <h2>Market Overview</h2>
-              <p className="bid">
-                Bid: <span>{marketData[marketData.length - 1]?.bid}</span>
-              </p>
-              <p className="ask">
-                Ask: <span>{marketData[marketData.length - 1]?.ask}</span>
-              </p>
-              <p className="last-chng">
-                Last Change: <span>{marketData[marketData.length - 1]?.lastChng}</span>
-              </p>
-              <p className="volume">
-                Volume: <span>{marketData[marketData.length - 1]?.volume}</span>
-              </p>
+        </div>
+      <div className="container">
+        <h1>Coffee Commodity Trading Dashboard</h1>
+        <div className="grid">
+          <div className="card">
+            <h1>Coffee Trading Dashboard</h1>
+            <div className="sub-grid">
+              <div className="signal">
+                <h2>Trading Signal</h2>
+                <h3 style={{ color: "#f50057" }}>{signal}</h3>
+                <p>{explanation}</p>
+                {loadingAI && <PacmanLoader color="#36D7B7" size={25} />}
+              </div>
+              <div className="overview">
+                <h2>Market Overview</h2>
+                <p className="bid">
+                  Bid: <span>{marketData[marketData.length - 1]?.bid}</span>
+                </p>
+                <p className="ask">
+                  Ask: <span>{marketData[marketData.length - 1]?.ask}</span>
+                </p>
+                <p className="last-chng">
+                  Last Change:{" "}
+                  <span>{marketData[marketData.length - 1]?.lastChng}</span>
+                </p>
+                <p className="volume">
+                  Volume:{" "}
+                  <span>{marketData[marketData.length - 1]?.volume}</span>
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="historical-data">
-            <h2>Historical Data</h2>
-            <div className="chart-container">
-              <Line
-                data={chartData}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  plugins: {
-                    legend: {
-                      display: true,
-                      labels: {
-                        color: '#333',
+            <div className="historical-data">
+              <h2>Historical Data</h2>
+              <div className="chart-container">
+                <Line
+                  data={chartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: {
+                        display: true,
+                        labels: {
+                          color: "#333",
+                        },
                       },
                     },
-                  },
-                  scales: {
-                    x: {
-                      ticks: {
-                        color: '#333',
+                    scales: {
+                      x: {
+                        ticks: {
+                          color: "#333",
+                        },
+                        grid: {
+                          color: "#e0e0e0",
+                        },
                       },
-                      grid: {
-                        color: '#e0e0e0',
+                      y: {
+                        ticks: {
+                          color: "#333",
+                        },
+                        grid: {
+                          color: "#e0e0e0",
+                        },
                       },
                     },
-                    y: {
-                      ticks: {
-                        color: '#333',
-                      },
-                      grid: {
-                        color: '#e0e0e0',
-                      },
-                    },
-                  },
-                }}
-              />
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div className="additional-analysis">
-        <h2>Additional Analysis by Gemini AI</h2>
-        <div className="messages-container">
-          {messages.map((msg, index) => (
-            <div key={index} className="message">
-              <div className={`sender ${msg.sender}`}>
-                {msg.sender === "ai" ? "Gemini AI" : "User"}
+        <div className="additional-analysis">
+          <h2>Advanced Analysis by AI</h2>
+          <div className="messages-container">
+            {messages.map((msg, index) => (
+              <div key={index} className={`message ${msg.sender}`}>
+                <div className={`sender ${msg.sender}`}>
+                  {msg.sender === "ai" ? "AI" : "User"}
+                </div>
+                <div className="text">
+                  {msg.text
+                    .replace(/\*\*/g, "", "###")
+                    .split("\n\n")
+                    .map((paragraph, i) => (
+                      <p key={i} className="message-paragraph">
+                        {paragraph}
+                      </p>
+                    ))}
+                </div>
+                <div className="timestamp">
+                  <span>{msg.timestamp}</span>
+                  <span className="learn-more">Learn More</span>
+                </div>
               </div>
-              <div
-                className="text"
-                dangerouslySetInnerHTML={{ __html: parseMarkdown(msg.text) }}
-              />
-              <div className="timestamp">
-                <span>{msg.timestamp}</span>
-                <span className="learn-more">Learn More</span>
+            ))}
+            {loadingAI && (
+              <div className="loader">
+                <PacmanLoader color="#36D7B7" size={25} />
+                <div className="loader-text">Analyzing the latest data...</div>
               </div>
-            </div>
-          ))}
-          {loadingAI && (
-            <div className="loader">
-              <PacmanLoader color="#36D7B7" size={25} />
-              <div className="loader-text">Analyzing the latest data...</div>
-            </div>
-          )}
-          <div ref={messageEndRef}></div>
+            )}
+            <div ref={messageEndRef}></div>
+          </div>
         </div>
       </div>
     </div>
