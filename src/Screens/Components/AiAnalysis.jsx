@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import "./Styles.scss";
 import { PacmanLoader } from "react-spinners";
 import { Dropdown } from "primereact/dropdown";
@@ -79,6 +79,55 @@ const AIAnalysisComponent = ({
       setNegativeTargetPrice(negativeTarget); // Set the negative target price
     }
   };
+
+  const callGeminiAI = useCallback(
+    async (enhancedPrompt) => {
+      setLoadingAI(true);
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: enhancedPrompt,
+                  },
+                ],
+              },
+            ],
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch the API");
+        }
+
+        const data = await response.json();
+        const aiText = data.candidates[0].content.parts[0].text;
+
+        const aiSegments = aiText
+          .split("```")
+          .filter((segment) => segment.trim() !== "");
+
+        const aiMessageObjects = aiSegments.map((segment) => ({
+          sender: "ai",
+          text: segment.trim(),
+          timestamp: new Date().toLocaleString(),
+        }));
+
+        setMessages((prevMessages) => [...prevMessages, ...aiMessageObjects]);
+      } catch (error) {
+        console.error("Error calling Gemini AI:", error);
+      } finally {
+        setLoadingAI(false);
+      }
+    },
+    [setMessages, setLoadingAI]
+  );
 
   useEffect(() => {
     connectWebSocket();
@@ -214,15 +263,14 @@ const AIAnalysisComponent = ({
     };
 
     analysisIntervalRef.current = setInterval(analyzeData, 60000); // Analyze every 60 seconds
+    const currentSocket = socketRef.current; // Capture the current value of socketRef.current
 
     return () => {
-      const currentSocket = socketRef.current; // Copy ref to a variable
       if (currentSocket) {
-        currentSocket.close(); // Close the socket connection
+        currentSocket.close(); // Close the socket connection using the captured value
       }
-      clearInterval(analysisIntervalRef.current); // Clear interval
+      clearInterval(analysisIntervalRef.current); // Clear the interval
     };
-    
   }, [
     connectWebSocket,
     signal,
@@ -232,6 +280,7 @@ const AIAnalysisComponent = ({
     setSignal,
     setExplanation,
     setMarketData,
+    callGeminiAI,
   ]);
 
   useEffect(() => {
@@ -269,52 +318,52 @@ const AIAnalysisComponent = ({
     dataBufferRef,
   ]);
 
-  const callGeminiAI = async (enhancedPrompt) => {
-    setLoadingAI(true);
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: enhancedPrompt,
-                },
-              ],
-            },
-          ],
-        }),
-      });
+  // const callGeminiAI = async (enhancedPrompt) => {
+  //   setLoadingAI(true);
+  //   try {
+  //     const response = await fetch(API_URL, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         contents: [
+  //           {
+  //             parts: [
+  //               {
+  //                 text: enhancedPrompt,
+  //               },
+  //             ],
+  //           },
+  //         ],
+  //       }),
+  //     });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch the API");
-      }
+  //     if (!response.ok) {
+  //       throw new Error("Failed to fetch the API");
+  //     }
 
-      const data = await response.json();
-      const aiText = data.candidates[0].content.parts[0].text;
+  //     const data = await response.json();
+  //     const aiText = data.candidates[0].content.parts[0].text;
 
-      // Parse AI Response
-      const aiSegments = aiText
-        .split("```")
-        .filter((segment) => segment.trim() !== "");
+  //     // Parse AI Response
+  //     const aiSegments = aiText
+  //       .split("```")
+  //       .filter((segment) => segment.trim() !== "");
 
-      const aiMessageObjects = aiSegments.map((segment) => ({
-        sender: "ai",
-        text: segment.trim(),
-        timestamp: new Date().toLocaleString(),
-      }));
+  //     const aiMessageObjects = aiSegments.map((segment) => ({
+  //       sender: "ai",
+  //       text: segment.trim(),
+  //       timestamp: new Date().toLocaleString(),
+  //     }));
 
-      setMessages((prevMessages) => [...prevMessages, ...aiMessageObjects]);
-    } catch (error) {
-      console.error("Error calling Gemini AI:", error);
-    } finally {
-      setLoadingAI(false);
-    }
-  };
+  //     setMessages((prevMessages) => [...prevMessages, ...aiMessageObjects]);
+  //   } catch (error) {
+  //     console.error("Error calling Gemini AI:", error);
+  //   } finally {
+  //     setLoadingAI(false);
+  //   }
+  // };
 
   useEffect(() => {
     if (messageEnd.current) {
@@ -349,6 +398,9 @@ const AIAnalysisComponent = ({
               onChange={(e) => setPositiveThreshold(e.value)}
               disabled={isLocked}
               suffix="%"
+              mode="decimal"
+              minFractionDigits={1} // Allow at least one decimal place
+              maxFractionDigits={2} // Limit to two decimal places
             />
           </div>
           <div className="threshold-section">
@@ -358,19 +410,23 @@ const AIAnalysisComponent = ({
               onChange={(e) => setNegativeThreshold(e.value)}
               disabled={isLocked}
               suffix="%"
+              mode="decimal"
+              minFractionDigits={1}
+              maxFractionDigits={2}
             />
-            <div className="input-group">
-              <label htmlFor="timeframe">Select Timeframe:</label>
-              <Dropdown
-                id="timeframe"
-                value={timeframe}
-                options={timeframes}
-                onChange={(e) => setTimeframe(e.value)}
-                placeholder="Select Timeframe"
-                className="timeframe-dropdown"
-              />
-            </div>
           </div>
+          <div className="input-group">
+            <label htmlFor="timeframe">Select Timeframe:</label>
+            <Dropdown
+              id="timeframe"
+              value={timeframe}
+              options={timeframes}
+              onChange={(e) => setTimeframe(e.value)}
+              placeholder="Select Timeframe"
+              className="timeframe-dropdown"
+            />
+          </div>
+
           <Button
             label="Confirm"
             onClick={handleConfirm}
