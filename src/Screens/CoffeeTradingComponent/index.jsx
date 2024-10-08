@@ -12,6 +12,7 @@ import {
   Legend,
 } from "chart.js";
 import "./Styles.scss";
+import AIAnalysisComponent from "../Components/AiAnalysis";
 
 // Register necessary components
 ChartJS.register(
@@ -26,8 +27,6 @@ ChartJS.register(
 
 const WEBSOCKET_URL =
   "wss://coffeequotes.coffeewebapi.com/api/GetICEMartketTerminalData";
-const API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBKwmxvZ6CNV6LubLjo0AaKJyDG4YFZ20A"; // Your actual API key
 
 const CoffeeTradingComponent = () => {
   const [marketData, setMarketData] = useState([]);
@@ -162,154 +161,6 @@ const CoffeeTradingComponent = () => {
       setTimeout(connectWebSocket, 5000);
     };
   }, []);
-  useEffect(() => {
-    connectWebSocket();
-    const analyzeData = async () => {
-      if (dataBufferRef.current.length === 0) return;
-
-      const lastDataPoint =
-        dataBufferRef.current[dataBufferRef.current.length - 1];
-
-      // Extract relevant market metrics
-      const {
-        // marketName,
-        lastChng,
-        bid,
-        ask,
-        bsize: bidSize,
-        asize: askSize,
-        volume,
-        highRate,
-        lowRate,
-        prevRate,
-        openRate,
-        // openInterest,
-        optionExpiry,
-        firstNoticeDay,
-      } = lastDataPoint;
-
-      const priceChangePercentage = ((lastChng - prevRate) / prevRate) * 100;
-      const liquidity = bidSize - askSize;
-      const priceFluctuation = highRate - lowRate;
-
-      let overallSignal = "";
-      let detailedExplanation = "";
-      let changedMetrics = [];
-
-      // Calculate signal based on market metrics
-      if (priceChangePercentage > 1 && liquidity > 0) {
-        overallSignal = "Strong Buy";
-        detailedExplanation =
-          "The market is showing strong upward momentum. It's a good time to buy.";
-        changedMetrics.push("lastChng");
-      } else if (priceChangePercentage < -1 && liquidity < 0) {
-        overallSignal = "Strong Sell";
-        detailedExplanation =
-          "The market is under selling pressure. Consider selling your position.";
-        changedMetrics.push("lastChng");
-      } else {
-        overallSignal = "Hold";
-        detailedExplanation =
-          "The market is stable. It's best to hold your position for now.";
-      }
-
-      // Analyze additional metrics and adjust signal/explanation
-      // Last Price Impact
-      if (lastChng > highRate) {
-        detailedExplanation +=
-          " The price has broken a recent high, suggesting bullish momentum.";
-        changedMetrics.push("lastChng");
-      } else if (lastChng < lowRate) {
-        detailedExplanation +=
-          " The price has dropped below a recent low, indicating bearish sentiment.";
-        changedMetrics.push("lastChng");
-      }
-
-      // Bid/Ask Analysis
-      if (bid > ask) {
-        detailedExplanation += " Demand is strong with bids exceeding asks.";
-        changedMetrics.push("bid");
-      } else if (ask < bid) {
-        detailedExplanation += " Supply is strong with asks exceeding bids.";
-        changedMetrics.push("ask");
-      }
-
-      // Volume Impact
-      if (volume > 1000) {
-        detailedExplanation += " High volume indicates strong interest.";
-        changedMetrics.push("volume");
-      }
-
-      // Open Price Comparison
-      if (openRate > prevRate) {
-        detailedExplanation +=
-          " The market opened higher than the previous close, indicating bullish sentiment.";
-        changedMetrics.push("openRate");
-      } else if (openRate < prevRate) {
-        detailedExplanation +=
-          " The market opened lower than the previous close, indicating bearish sentiment.";
-        changedMetrics.push("openRate");
-      }
-
-      // Option Expiry and First Notice Day
-      if (optionExpiry && new Date(optionExpiry) < new Date()) {
-        detailedExplanation +=
-          " The option expiry is approaching, which may increase price fluctuation.";
-        changedMetrics.push("optionExpiry");
-      }
-
-      if (firstNoticeDay && new Date(firstNoticeDay) < new Date()) {
-        detailedExplanation +=
-          " The first notice day is approaching, possibly causing price swings.";
-        changedMetrics.push("firstNoticeDay");
-      }
-
-      const enhancedPrompt = `
-      Provide an in-depth analysis of the current coffee commodity market conditions, focusing on real-time data and key factors influencing the market avoid buzz words.
-   
-      Data Summary:
-      - Trading Signal: ${signal}
-      - Price Change: ${priceChangePercentage.toFixed(2)}%
-      - Liquidity: ${liquidity}
-      - price fluctuation: ${priceFluctuation}
-      - Bid Price: ${bid}
-      - Ask Price: ${ask}
-      - Volume: ${volume}
-      - Open Price: ${openRate}
-      - Previous Rate: ${prevRate}
-   
-      Key Aspects:
-      - Current Contract Status: Highlight ongoing futures contracts (buy/sell) and their performance.
-      - Coffee Buying/Selling Trends: Are there any dominant trends in the market for purchasing or selling coffee contracts?
-      - Inventory and Supply Chain Impact: Is current market movement driven by supply chain constraints, harvest outlook, or inventory fluctuations please go through the web and give us a prominent response related to coffee commodity inventory and supply chain Impact as of today news surf the web?
-      - Coffee-Specific Economic Factors: How are economic indicators like weather conditions, global demand, or trade policies affecting coffee prices?
-   
-      Questions:
-      1. Based on the provided data, what is the overall trend for coffee commodity contracts (long/short positions)?
-      2. Are there any immediate risks of unexpected price fluctuations or price fluctuation based on external factors like weather or supply shortages?
-      3. Which major factors (e.g., harvest forecasts, supply issues, currency exchange rates) are driving the buy/sell signals in the coffee market?
-      4. Considering this data, should traders adjust their current positions (buy/sell/hold) in coffee futures, and what are the recommended strategies for maximizing profits or minimizing risks?
-   
-      Please provide the analysis in a clear, easy-to-understand format suitable for both seasoned traders and those new to coffee commodity trading avoid buzz words.
-   `;
-
-      setSignal(overallSignal);
-      setExplanation(detailedExplanation);
-      setMarketData(dataBufferRef.current);
-
-      // Call Gemini AI API with the market analysis
-      await callGeminiAI(enhancedPrompt);
-    };
-
-    analysisIntervalRef.current = setInterval(analyzeData, 60000); // Analyze every 6 seconds
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.close();
-      }
-      clearInterval(analysisIntervalRef.current);
-    };
-  }, [connectWebSocket,signal]);
 
   const storeMarketData = (data) => {
     dataBufferRef.current.push(data);
@@ -318,52 +169,6 @@ const CoffeeTradingComponent = () => {
     }
   };
 
-  const callGeminiAI = async (enhancedPrompt) => {
-    setLoadingAI(true);
-    try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text: enhancedPrompt,
-                },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch the API");
-      }
-
-      const data = await response.json();
-      const aiText = data.candidates[0].content.parts[0].text;
-
-      // Parse AI Response
-      const aiSegments = aiText
-        .split("```")
-        .filter((segment) => segment.trim() !== "");
-
-      const aiMessageObjects = aiSegments.map((segment) => ({
-        sender: "ai",
-        text: segment.trim(),
-        timestamp: new Date().toLocaleString(),
-      }));
-
-      setMessages((prevMessages) => [...prevMessages, ...aiMessageObjects]);
-    } catch (error) {
-      console.error("Error calling Gemini AI:", error);
-    } finally {
-      setLoadingAI(false);
-    }
-  };
   const chartData = {
     labels: marketData.map((_, index) => index + 1), // Use index as labels for simplicity
     datasets: [
@@ -401,7 +206,7 @@ const CoffeeTradingComponent = () => {
         <div className="status-cards">
           <div className="status-card">
             <h3>{marketStatus}</h3>
-            <p>{timeRemaining}</p> 
+            <p>{timeRemaining}</p>
             {marketStatus === "Market is Open To Trade" && (
               <p style={{ color: getTimerColor() }}>
                 Closing in {formatCountdown()}
@@ -484,38 +289,22 @@ const CoffeeTradingComponent = () => {
             </div>
           </div>
         </div>
-        <div className="additional-analysis">
-          <h2>Advanced Analysis by AI</h2>
-          <div className="messages-container">
-            {messages.map((msg, index) => (
-              <div key={index} className={`message ${msg.sender}`}>
-                <div className={`sender ${msg.sender}`}>
-                  {msg.sender === "ai" ? "AI" : "User"}
-                </div>
-                <div className="text">
-                  {msg.text
-                    .replace(/\*\*/g, "", "###")
-                    .split("\n\n")
-                    .map((paragraph, i) => (
-                      <p key={i} className="message-paragraph">
-                        {paragraph}
-                      </p>
-                    ))}
-                </div>
-                <div className="timestamp">
-                  <span>{msg.timestamp}</span>
-                  <span className="learn-more">Learn More</span>
-                </div>
-              </div>
-            ))}
-            {loadingAI && (
-              <div className="loader">
-                <PacmanLoader color="#36D7B7" size={25} />
-                <div className="loader-text">Analyzing the latest data...</div>
-              </div>
-            )}
-            <div ref={messageEndRef}></div>
-          </div>
+        <div>
+          <AIAnalysisComponent
+            connectWebSocket={connectWebSocket}
+            dataBufferRef={dataBufferRef}
+            signal={signal}
+            setSignal={setSignal}
+            setExplanation={setExplanation}
+            setMarketData={setMarketData}
+            analysisIntervalRef={analysisIntervalRef}
+            socketRef={socketRef}
+            setLoadingAI={setLoadingAI}
+            setMessages={setMessages}
+            messageEnd={messageEndRef}
+            messages={messages}
+            lastChng={marketData[marketData.length - 1]?.lastChng}
+          />
         </div>
       </div>
     </div>
