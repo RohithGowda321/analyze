@@ -370,7 +370,6 @@ const AIAnalysisComponent = ({
       messageEnd.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, messageEnd]);
-
   return (
     <div className="additional-analysis">
       <h2>Advanced Analysis by AI</h2>

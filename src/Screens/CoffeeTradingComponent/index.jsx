@@ -59,13 +59,13 @@ const CoffeeTradingComponent = () => {
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
-    // Check if today is Saturday (6) or Sunday (0)
-    if (day === 0 || day === 6) {
-      setMarketStatus("Closed");
-      setTimeRemaining(`Current time: ${now.toLocaleTimeString()}`);
-      setCountdown(0);
-      return;
-    }
+    // // Check if today is Saturday (6) or Sunday (0)
+    // if (day === 0 || day === 6) {
+    //   setMarketStatus("Closed");
+    //   setTimeRemaining(`Current time: ${now.toLocaleTimeString()}`);
+    //   setCountdown(0);
+    //   return;
+    // }
 
     // Calculate the time in minutes since 00:00
     const currentMinutes = hours * 60 + minutes;
@@ -142,7 +142,7 @@ const CoffeeTradingComponent = () => {
 
       if (Array.isArray(coffeeQuotesICEData)) {
         const filteredData = coffeeQuotesICEData.filter(
-          (item) => item.idMarket === 2 && item.marketName === "KCZ-24 (DEC 24)"
+          (item) => item.idMarket === 1 && item.marketName === "RCF-25 (JAN 25)"
         );
 
         if (filteredData.length > 0) {
@@ -158,7 +158,7 @@ const CoffeeTradingComponent = () => {
 
     socketRef.current.onclose = () => {
       console.log("WebSocket connection closed. Attempting to reconnect...");
-      setTimeout(connectWebSocket, 5000);
+      setTimeout(connectWebSocket, 50);
     };
   }, []);
 
@@ -169,6 +169,7 @@ const CoffeeTradingComponent = () => {
     }
   };
 
+  
   const chartData = {
     labels: marketData.map((_, index) => index + 1), // Use index as labels for simplicity
     datasets: [
