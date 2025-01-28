@@ -7,7 +7,7 @@ import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 
 const API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBMY3UkSkAa32xkoNgYCPvOuRDoder7tq4";
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyAVsWThNkrpAWM7hpNFDFRxWcDB_2NkjKw";
 
 const AIAnalysisComponent = ({
   connectWebSocket,
