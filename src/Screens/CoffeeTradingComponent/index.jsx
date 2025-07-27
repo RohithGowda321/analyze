@@ -142,7 +142,7 @@ const CoffeeTradingComponent = () => {
 
       if (Array.isArray(coffeeQuotesICEData)) {
         const filteredData = coffeeQuotesICEData.filter(
-          (item) => item.idMarket === 1 && item.marketName === "RCF-25 (JAN 25)"
+          (item) => item.idMarket === 1 && item.marketName === "RCU-25 (SEP 25)"
         );
 
         if (filteredData.length > 0) {
