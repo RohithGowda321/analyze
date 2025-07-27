@@ -55,7 +55,7 @@ const CoffeeTradingComponent = () => {
   }, []);
 
   const updateMarketStatus = (now) => {
-    const day = now.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
+    // const day = now.getDay(); // 0: Sunday, 1: Monday, ..., 6: Saturday
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
